@@ -1,0 +1,57 @@
+#RepeatModeler+RepeatMasker annoation
+
+#RepeatModeler
+
+# BuildDatabase 建立索引
+
+nohup BuildDatabase -name genome genome.fasta > BuildDatabase.log 2>&1 &
+
+RepeatModeler 进行本物种 TE 预测
+
+nohup RepeatModeler -database genome -threads 112 > RepeatModeler.log 2>&1 &
+
+得到 genome-families.fa genome-families-stk
+
+LTR-RTs鉴定（使用 LTRharvest + LTR_FINDER 预测完整全长LTR转座子）
+
+# gt suffixerator 创建索引
+
+nohup /public1/guop/yjc/software/genometools-1.6.6/bin/gt suffixerator -db genome.fasta -indexname genome.fasta -tis -suf -lcp -des -ssp -sds -dna > suffixerator.log 2>&1 &
+
+# LTRharvest 预测
+
+nohup /public1/guop/yjc/software/genometools-1.6.6/bin/gt ltrharvest -index genome.fasta -minlenltr 100 -maxlenltr 7000 -mintsd 4 -maxtsd 6 -motif TGCA -motifmis 1 -similar 85 -vic 10 -seed 20 -seqids yes > LTRharvest.scn 2> ltrharvest2.log &
+
+#LTR_finder 预测
+
+nohup /public1/guop/yjc/software/LTR_FINDER_parallel-1.3/LTR_FINDER_parallel -seq genome.fasta -threads 112 -harvest_out -size 1000000 -time 300 > LTR_FINDER.log 2>&1 &
+
+# LTR_retriever #使用 LTRharvest + LTR_FINDER 结果
+
+nohup /public1/guop/yjc/software/LTR_retriever-3.0.5/LTR_retriever -genome genome.fasta -inharvest genome.ltrharvest.scn -infinder genome.fasta.finder.combine.scn -threads 112 -noanno > LTR_retriever.log 2>&1 &
+
+TEclass2 分别对 genome-families.fa、genome.mod.lib.fa 中的 unknown 重新分类
+
+python TEclass2.py --classify -f unknown.fasta -o denovo_unknown_te_results
+
+#同源物种重复序列导出库
+python famdb.py -i Libraries/RepeatMaskerLib.h5 lineage -ad lamiids	
+
+python famdb.py -i Libraries/RepeatMaskerLib.h5 families -f embl -a -d lamiids > lamiids.embl	
+
+buildRMLibFromEMBL.pl lamiids.embl > lamiids.fasta
+
+#合并Repbase数据库和自建库
+
+cat genome-families-reclassified.fa genome_LTRlib_reclassified.fa lamiids.fasta > genome_combined_te.fasta
+
+#Repeatmasker鉴定
+
+nohup RepeatMasker -pa 112 -lib genome_combined_te.fasta -dir genome_RM_out -gff -html -source -nolow genome.fasta > RM_run.log 2>&1 &
+
+#RepeatProteinMask鉴定
+
+nohup RepeatProteinMask -engine ncbi -noLowSimple -pvalue 0.0001 genome.fasta > RPM_run.log 2>&1 &
+
+合并结果 Combined_TE
+
