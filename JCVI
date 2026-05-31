@@ -1,0 +1,14 @@
+# 提取cds序列
+gffread -g sfza.fasta -x sfza_cds.fa --keep-genes SFZ.A.O.fragrans.gene.gff
+# 最长cds
+seqkit sort -l -r sfza_cds.fa | seqkit rmdup --id-regexp "^([^.]+)" -o sfza_longest.cds.fa
+# 最长gff3
+python get_longest.py SFZ.A.O.fragrans.gene.gff > sfza_longest.gff3
+# 生成.bed文件
+python -m jcvi.formats.gff bed --type=mRNA sfza.gff3 -o sfza.bed
+# 共线性分析
+python -m jcvi.compara.catalog ortholog sfza lyjg --no_strip_names --notex
+python -m jcvi.compara.synteny screen --minspan=30 --simple sfza.lyjg.anchors sfza.lyjg.anchors.new --qbed=sfza.bed --sbed=lyjg.bed
+seqids  layout
+python -m jcvi.graphics.karyotype seqids layout --notex
+得到 karyotype.pdf
